@@ -64,20 +64,23 @@ pub struct LogEntry {
 }
 
 /// Thread-safe log collector for the frontend debug panel.
-static LOG_BUFFER: std::sync::LazyLock<std::sync::Mutex<Vec<LogEntry>>> =
-    std::sync::LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
+/// Uses VecDeque for O(1) eviction of oldest entries (vs Vec::drain which is O(n)).
+static LOG_BUFFER: std::sync::LazyLock<std::sync::Mutex<std::collections::VecDeque<LogEntry>>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::Mutex::new(std::collections::VecDeque::with_capacity(512))
+    });
 
 /// Push a log entry into the global buffer.
 fn push_log(level: &str, message: String) {
     if let Ok(mut logs) = LOG_BUFFER.lock() {
-        logs.push(LogEntry {
+        logs.push_back(LogEntry {
             timestamp: chrono::Local::now().format("%H:%M:%S%.3f").to_string(),
             level: level.to_string(),
             message,
         });
-        // Keep buffer bounded
-        if logs.len() > 500 {
-            logs.drain(0..100);
+        // Keep buffer bounded — O(1) pop from front
+        while logs.len() > 500 {
+            logs.pop_front();
         }
     }
 }
@@ -323,8 +326,9 @@ async fn start_watcher(
                         let path_str = path.to_string_lossy().to_string();
                         if let Ok(Some((doc_id, _))) = app_state.db.get_document_by_path(&path_str)
                         {
-                            let _ = app_state.db.delete_embeddings_for_document(doc_id);
-                            let _ = app_state.db.delete_chunks_for_document(doc_id);
+                            if let Err(e) = app_state.db.delete_document(doc_id) {
+                                tracing::warn!("Failed to delete document {}: {}", path_str, e);
+                            }
                         }
                     }
                 }
@@ -574,6 +578,18 @@ async fn clear_logs() -> Result<(), String> {
     let mut logs = LOG_BUFFER.lock().map_err(|e| e.to_string())?;
     logs.clear();
     Ok(())
+}
+
+/// Accept a log entry pushed from the frontend (e.g. React ErrorBoundary).
+/// This allows frontend errors to appear in the DebugPanel alongside backend logs.
+#[tauri::command]
+async fn log_from_frontend(level: String, message: String) {
+    // Validate level to one of the known values
+    let level = match level.to_lowercase().as_str() {
+        "error" | "warn" | "info" | "debug" => level.to_lowercase(),
+        _ => "info".to_string(),
+    };
+    push_log(&level, message);
 }
 
 // --- Edition Commands ---
@@ -1688,14 +1704,14 @@ pub fn run() {
         push_log("info", "Conversation memory schema initialized".to_string());
     }
 
-    // --- Step 4: Initialize embedding engine ---
-    let embedding_engine = tauri::async_runtime::block_on(async {
-        tracing::info!("Initializing AI embedding engine...");
-        let engine = EmbeddingEngine::initialize().await;
-        tracing::info!("AI backend active: {}", engine.backend());
-        push_log("info", format!("Embedding engine: {}", engine.backend()));
-        engine
-    });
+    // --- Step 4: Create embedding engine (deferred loading) ---
+    // Like ChatEngine: start immediately with FTS5-only, load native model in background.
+    // This prevents blocking the UI during model download (~23MB) or loading (~200ms).
+    let embedding_engine = EmbeddingEngine::new(hardware.clone());
+    push_log(
+        "info",
+        "Embedding engine created (deferred loading)".to_string(),
+    );
 
     // --- Step 5: Determine chat model ---
     let model_id = if settings.chat_model == "auto" {
@@ -1784,6 +1800,7 @@ pub fn run() {
             // Debug
             get_logs,
             clear_logs,
+            log_from_frontend,
             // Settings
             get_settings,
             save_settings,
@@ -1848,6 +1865,7 @@ pub fn run() {
 
                 let tray_handle = app.handle().clone();
                 let tray_icon = app.default_window_icon().cloned();
+                let quit_state = app_state.clone();
                 let mut tray_builder = TrayIconBuilder::new()
                     .menu(&menu)
                     .tooltip("Ghost — AI Assistant");
@@ -1860,7 +1878,13 @@ pub fn run() {
                             toggle_window(&tray_handle);
                         }
                         "quit" => {
-                            std::process::exit(0);
+                            // Graceful shutdown: checkpoint WAL before exiting
+                            tracing::info!("Quit requested — performing graceful shutdown...");
+                            if let Err(e) = quit_state.db.checkpoint() {
+                                tracing::warn!("WAL checkpoint failed during shutdown: {}", e);
+                            }
+                            // Use Tauri's exit API for proper cleanup (event handlers, plugins)
+                            _app.exit(0);
                         }
                         _ => {}
                     })
@@ -2022,7 +2046,33 @@ pub fn run() {
                 }
             });
 
-            // --- Background model loading ---
+            // --- Background embedding engine loading ---
+            // Load the native embedding model asynchronously (downloads ~23MB on first run).
+            // The UI is already visible — search falls back to FTS5-only until ready.
+            let state_for_embeddings = app_state.clone();
+            tauri::async_runtime::spawn(async move {
+                tracing::info!("Background: starting embedding engine load...");
+                push_log(
+                    "info",
+                    "Loading embedding model in background...".to_string(),
+                );
+                state_for_embeddings.embedding_engine.load().await;
+                let status = state_for_embeddings.embedding_engine.status();
+                push_log(
+                    "info",
+                    format!(
+                        "Embedding engine ready: {} ({}, {}D)",
+                        status.backend, status.model_name, status.dimensions
+                    ),
+                );
+                tracing::info!(
+                    "Embedding engine loaded: {} ({}D)",
+                    status.backend,
+                    status.dimensions
+                );
+            });
+
+            // --- Background chat model loading ---
             // Don't block app startup — load the chat model in a background task
             let state_for_loading = app_state.clone();
             tauri::async_runtime::spawn(async move {
@@ -2049,8 +2099,13 @@ pub fn run() {
             let state_for_autoindex = app_state.clone();
             tauri::async_runtime::spawn(async move {
                 let needs_auto_setup = {
-                    let settings = state_for_autoindex.settings.lock().unwrap();
-                    settings.watched_directories.is_empty()
+                    match state_for_autoindex.settings.lock() {
+                        Ok(settings) => settings.watched_directories.is_empty(),
+                        Err(e) => {
+                            tracing::error!("Failed to lock settings for auto-setup check: {}", e);
+                            false
+                        }
+                    }
                 };
 
                 if needs_auto_setup {
@@ -2105,9 +2160,19 @@ pub fn run() {
 
                         // Save to settings so this only happens once
                         {
-                            let mut settings = state_for_autoindex.settings.lock().unwrap();
-                            settings.watched_directories = auto_dirs.clone();
-                            let _ = settings.save(&get_app_data_dir().join("settings.json"));
+                            match state_for_autoindex.settings.lock() {
+                                Ok(mut settings) => {
+                                    settings.watched_directories = auto_dirs.clone();
+                                    let _ =
+                                        settings.save(&get_app_data_dir().join("settings.json"));
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to lock settings for auto-indexing: {}",
+                                        e
+                                    );
+                                }
+                            }
                         }
 
                         // Start indexing each directory
@@ -2186,14 +2251,9 @@ pub fn run() {
                                                             .db
                                                             .get_document_by_path(&path_str)
                                                         {
-                                                            let _ = watcher_state
-                                                                .db
-                                                                .delete_embeddings_for_document(
-                                                                    doc_id,
-                                                                );
-                                                            let _ = watcher_state
-                                                                .db
-                                                                .delete_chunks_for_document(doc_id);
+                                                            if let Err(e) = watcher_state.db.delete_document(doc_id) {
+                                                                tracing::warn!("Failed to delete document {}: {}", path_str, e);
+                                                            }
                                                         }
                                                     }
                                                 }

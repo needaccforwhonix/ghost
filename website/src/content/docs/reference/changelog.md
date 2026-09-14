@@ -3,6 +3,99 @@ title: "Changelog"
 description: "Release notes and version history for Ghost Agent OS."
 ---
 
+## [0.14.2](https://github.com/ghostapp-ai/ghost/compare/v0.14.1...v0.14.2) (2026-02-27)
+
+### 🐛 Bug Fixes
+
+* update version to 0.14.1 and improve error handling in various modules ([ae4c99c](https://github.com/ghostapp-ai/ghost/commit/ae4c99c499d8a5eaac812a621abf2055511ea1d7))
+
+## [0.14.1](https://github.com/ghostapp-ai/ghost/compare/v0.14.0...v0.14.1) (2026-02-24)
+
+### 🐛 Bug Fixes
+
+* route frontend errors to backend log buffer and add DebugPanel copy-to-clipboard ([#14](https://github.com/ghostapp-ai/ghost/issues/14)) ([f42f891](https://github.com/ghostapp-ai/ghost/commit/f42f891d0c5b71c5890d8d04d907500f9f5977be))
+
+## [0.14.0](https://github.com/ghostapp-ai/ghost/compare/v0.13.5...v0.14.0) (2026-02-22)
+
+### 🚀 Features
+
+* **embeddings:** implement deferred loading for AI embedding engine ([3ffb11e](https://github.com/ghostapp-ai/ghost/commit/3ffb11e0ebce8995263d312d0a56446cf3065f87))
+
+### 🐛 Bug Fixes
+
+* **search:** install TLS crypto provider in test_hybrid_search ([0da91bb](https://github.com/ghostapp-ai/ghost/commit/0da91bbfcd4ca409532689b0888ae65d51623ab3))
+
+### 📚 Documentation
+
+* **website:** auto-sync content from source files [skip ci] ([38230af](https://github.com/ghostapp-ai/ghost/commit/38230af6337f51865b2dad2b5bec243c84681fb6))
+
+## [0.13.5](https://github.com/ghostapp-ai/ghost/compare/v0.13.4...v0.13.5) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **chat:** add CPU fallback when GPU model loading fails ([e49ceb3](https://github.com/ghostapp-ai/ghost/commit/e49ceb3561b76ecafed994511bcf411a06c2a0b7))
+* **inference:** prefer discrete GPU over integrated in detection ([b0ec1fb](https://github.com/ghostapp-ai/ghost/commit/b0ec1fb49411298be82b419e40b68f3def21a645))
+* **mcp:** detect Ghost-managed runtimes and suppress terminal windows ([7eb4ae7](https://github.com/ghostapp-ai/ghost/commit/7eb4ae7584e9124e7dcd65e989c681ad498a66fa))
+
+### ♻️ Code Refactoring
+
+* **ui:** make Ghost a normal desktop app with smart welcome ([54d77f8](https://github.com/ghostapp-ai/ghost/commit/54d77f83ab3c7108b89cd1e6255388d14699c375))
+
+## [0.13.4](https://github.com/ghostapp-ai/ghost/compare/v0.13.3...v0.13.4) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **ci:** shorten Windows build path to fix MAX_PATH C1041 error ([67ab4e0](https://github.com/ghostapp-ai/ghost/commit/67ab4e015ce70b0a7335c8ff2e279f94453a66b8))
+
+## [0.13.3](https://github.com/ghostapp-ai/ghost/compare/v0.13.2...v0.13.3) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **ci:** use Ninja generator on Windows to eliminate PDB race condition ([061e715](https://github.com/ghostapp-ai/ghost/commit/061e7156f8d2e93a08f7778c76e8a480d38d87b6)), closes [mozilla/sccache#1012](https://github.com/mozilla/sccache/issues/1012) [mozilla/sccache#1012](https://github.com/mozilla/sccache/issues/1012) [mozilla/sccache#2320](https://github.com/mozilla/sccache/issues/2320)
+
+## [0.13.2](https://github.com/ghostapp-ai/ghost/compare/v0.13.1...v0.13.2) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **ci:** replace /MP /FS with /Z7 to eliminate PDB race on Windows ([2445fed](https://github.com/ghostapp-ai/ghost/commit/2445feddce3b3b8f1660c40fee6515c96e7b587c))
+
+## [0.13.1](https://github.com/ghostapp-ai/ghost/compare/v0.13.0...v0.13.1) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **ci:** add /FS flag to Windows MSVC build to prevent PDB conflicts ([ad5714d](https://github.com/ghostapp-ai/ghost/commit/ad5714d4e1d86486acb989ea10126c9fb9dd2d7d))
+
+## [0.13.0](https://github.com/ghostapp-ai/ghost/compare/v0.12.0...v0.13.0) (2026-02-21)
+
+### 🚀 Features
+
+* **chat:** add hardware-adaptive inference configuration ([b67338e](https://github.com/ghostapp-ai/ghost/commit/b67338e143ccbe560e83e736dd634ccec8516c46))
+* **chat:** add Qwen3 model family with thinking mode support ([fdb2dfa](https://github.com/ghostapp-ai/ghost/commit/fdb2dfae540e95f9623fb79ec8d2d79b978f52c5))
+* **db:** add sqlite-vec partition keys and filtered vector search ([d7e0230](https://github.com/ghostapp-ai/ghost/commit/d7e02300776c588f77d09372a9a50f424dd72c10))
+* **frontend:** runtime bootstrap UI, AI tool discovery, and drag fix ([db58a10](https://github.com/ghostapp-ai/ghost/commit/db58a10639379019bc92076098fcd6b343c1044c))
+* **frontend:** sync types with Qwen3 backend, expand AG-UI + A2UI rendering ([cd15e29](https://github.com/ghostapp-ai/ghost/commit/cd15e29d4ad331f0428c2e53d7c9bd3555f463d7))
+* **mcp:** integrate Official MCP Registry (6,000+ servers) ([336ffb1](https://github.com/ghostapp-ai/ghost/commit/336ffb1e73cd1486571fc2ada80892bd901ec980))
+* **protocols:** add zero-config runtime bootstrap system ([af027f3](https://github.com/ghostapp-ai/ghost/commit/af027f3975ce297953ba2e2c89186ddc27caf3fb))
+* **protocols:** expand AG-UI to 30+ events and add A2A agent card ([493a4da](https://github.com/ghostapp-ai/ghost/commit/493a4dabd43aec37bdbff9ae4a292be3dfaca2cd))
+
+### 🐛 Bug Fixes
+
+* **ci:** resolve 3 clippy errors in runtime_bootstrap tests ([ca20399](https://github.com/ghostapp-ai/ghost/commit/ca20399d14b5265348ed645970359805340258b5))
+* resolve clippy dead_code warnings and doc indentation ([2187d09](https://github.com/ghostapp-ai/ghost/commit/2187d09b5b0fdb4652375a12e129a4006d28386f))
+
+### ⚡ Performance
+
+* add dist build profile and reduce re-index interval to 60min ([c66cc0d](https://github.com/ghostapp-ai/ghost/commit/c66cc0d8d94fea1f77e92b2ab2c32556438dda90))
+* **embeddings:** real tensor batching + GPU device selection ([ce6cca6](https://github.com/ghostapp-ai/ghost/commit/ce6cca6ce86c7d9b10de7f8851bb73fd849fda45))
+
+### 📚 Documentation
+
+* update CLAUDE and ROADMAP files for clarity and accuracy; bump ghost version to 0.12.0 ([2b7827a](https://github.com/ghostapp-ai/ghost/commit/2b7827a9ef44ec724ecc51789d8cd78d3d8c3d71))
+* update core documents for Qwen3, sqlite-vec, and A2A additions ([5c0b7b1](https://github.com/ghostapp-ai/ghost/commit/5c0b7b157ed0717c155942e8a4ff8bcd41308f20))
+* update README, ROADMAP, and CLAUDE.md for runtime bootstrap ([03e2cd2](https://github.com/ghostapp-ai/ghost/commit/03e2cd2b18340c5e2d340892e41a4ce0f19d34eb))
+* **website:** auto-sync content from source files [skip ci] ([ad7284d](https://github.com/ghostapp-ai/ghost/commit/ad7284d8cc8c61279bac52f2c3dc761dc8dbcf6d))
+* **website:** auto-sync content from source files [skip ci] ([103b362](https://github.com/ghostapp-ai/ghost/commit/103b362de6fb3615939be61903de30adbf6b9d22))
+
 ## [0.12.0](https://github.com/ghostapp-ai/ghost/compare/v0.11.2...v0.12.0) (2026-02-21)
 
 ### 🚀 Features
